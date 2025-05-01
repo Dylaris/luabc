@@ -21,7 +21,7 @@ local CLEAR_FILES = { TARGET, table.unpack(OBJ) }
 
 -- directly run the command
 -- usage: lua build.lua
----[[ 
+--[[ 
 local function build()
     local cmd = cmd:new()
     cmd:append(CC, CFLAGS, CSTD, "-o", TARGET, SRC)
@@ -33,7 +33,7 @@ build()
 
 -- use label and bind
 -- usage: lua build.lua [-clean][-all]
---[[ 
+---[[ 
 local function build()
     -- execute the commands in ascending order
     -- cmd:new(label, order)
