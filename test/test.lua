@@ -6,11 +6,10 @@ local luabc = require("luabc")
 local cmd = luabc.cmd
 local tool = luabc.tool
 
--- cmd:append("gcc", "-o", "main", "main.c")
--- cmd:print()
+local c1 = cmd:new("print", 2)
+local c2 = cmd:new("print", 1)
 
-local res, _ = tool.match_file_extension("lua")
-for key, val in ipairs(res) do
-    val = tool.replace_file_extension(nil, "c")
-    print(key, val)
-end
+c1:append("echo", "second")
+c2:append("echo", "first")
+
+luabc.build()

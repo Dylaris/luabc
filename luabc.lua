@@ -27,11 +27,37 @@ local log = {
     end,
 }
 
-local luabc = { tool = {}, cmd = {} }
 
-function luabc.cmd:new()
-    local object = { args = {} }
+local luabc = { 
+    bind = { ["__default"] = {} },
+    tool = {}, 
+    cmd = {} 
+}
+
+function luabc.build()
+    if #arg <= 1 then
+        local label = arg[1] or "-__default"
+        if string.sub(label, 1, 1) ~= "-" then
+            log.err("you should use label with '-': -" .. arg[1])
+            return
+        end
+        label = string.sub(label, 2, -1)
+        if not luabc.bind[label] then
+            log.err("label "  .. label .. " is not binded")
+        else
+            for _, cmd in ipairs(luabc.bind[label]) do cmd:run() end
+        end
+    else 
+        log.err("usage: lua build.lua [-label]")
+    end
+end
+
+function luabc.cmd:new(label, order)
+    label = label or "__default"
+    order = order or 1
+    local object = { args = {}, label = label, order = order }
     setmetatable(object, { __index = luabc.cmd })
+    object:bind(label)
     return object
 end
 
@@ -62,6 +88,7 @@ function luabc.cmd:clear()
 end
 
 function luabc.cmd:run()
+    if #(self.args) == 0 then return end
     local cmd = table.concat(self.args, " ")
     local status, msg = os.execute(cmd)
     if status then
@@ -70,6 +97,44 @@ function luabc.cmd:run()
         log.err("something wrong happends: " .. msg)
     end
     self:clear()
+end
+
+function luabc.cmd:bind(label)
+    if not label then
+        log.info("you have to bind the command to an label")
+        return
+    end
+
+    local free_flag, add_flag = false, false
+
+    -- add the label if it does not exist before
+    -- and we do not need to free 
+    if not luabc.bind[label] then
+        luabc.bind[label] = {}
+        free_flag = true
+    end
+
+    for key, val in pairs(luabc.bind) do
+        -- free the binding of command and old label
+        if not free_flag and key == self.label then
+            for idx, cmd in ipairs(val) do 
+                if cmd == self then
+                    table.remove(val, idx) 
+                    break
+                end
+            end
+            free_flag = true
+        end
+        -- add the binding of command and new label
+        if not add_flag and key == label then
+            table.insert(val, self)
+            table.sort(val, function (a, b) return a.order < b.order end)
+            add_flag = true
+        end
+
+        if free_flag and add_flag then break end
+    end
+    self.label = label
 end
 
 function luabc.tool.match_file_extension(extension, dir, maxdepth)
