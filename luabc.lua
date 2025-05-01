@@ -29,7 +29,6 @@ local log = {
 
 
 local luabc = { 
-    shell = "BASH",
     bind = { ["__default"] = {} },
     tool = {}, 
     cmd = {} 
@@ -144,23 +143,10 @@ function luabc.tool.match_file_extension(extension, dir, recursive)
     recursive = recursive or false
     local res = {}
 
-    local cmd = ""
-    if luabc.shell == "BASH" then
-        cmd = "find " .. dir .. " " ..
-              (recursive and "" or "-maxdepth 1 ") ..
-              "-type f " ..
-              "-name " .. "'" .. extension .. "'"
-    elseif luabc.shell == "POWERSHELL" then
-        dir = string.gsub(dir, "\\", "/")
-        cmd = "powershell -Command \"Get-ChildItem " ..
-              "-Path '" .. dir .. "' " ..
-              (recursive and "-Recurse " or "") ..
-              "-File " ..
-              "-Filter '" .. extension .. "' " ..
-              "| Select-Object -ExpandProperty Name\""
-    else
-        error("not yet implement")
-    end
+    local cmd = "find " .. dir .. " " ..
+                (recursive and "" or "-maxdepth 1 ") ..
+                "-type f " ..
+                "-name " .. "'" .. extension .. "'"
     local handle = io.popen(cmd)
     for file in handle:lines() do
         table.insert(res, file)
@@ -188,30 +174,12 @@ function luabc.tool.clean(file)
     if type(file) == "table" then
         file = table.concat(file, " ")
     end
-    local cmd = ""
-    if luabc.shell == "BASH" then
-        cmd = "rm -r " .. file
-        local status, msg = os.execute(cmd)
-        if status then
-            log.ok("run successfully [ " .. cmd .. " ]")
-        else
-            log.err("run failed [ " .. cmd .. " ] : " .. msg)
-        end
-    elseif luabc.shell == "POWERSHELL" then
-        file = string.gsub(file, "\\", "/")
-        for path in string.gmatch(file, '([^%s]+)') do
-            cmd = "powershell -Command \"Remove-Item " ..
-                  "-Path '" .. path .. "'" ..
-                  "-Recurse -Force\""
-            local status, msg = os.execute(cmd)
-            if status then
-                log.ok("run successfully [ " .. cmd .. " ]")
-            else
-                log.err("run failed [ " .. cmd .. " ] : " .. msg)
-            end
-        end
+    local cmd = "rm -rf " .. file
+    local status, msg = os.execute(cmd)
+    if status then
+        log.ok("run successfully [ " .. cmd .. " ]")
     else
-        error("not yet implement")
+        log.err("run failed [ " .. cmd .. " ] : " .. msg)
     end
 end
 

@@ -46,7 +46,7 @@ local function build()
     link:append(CC, CFLAGS, CSTD, "-o", TARGET, OBJ)
 
     local clean = cmd:new("clean", 1)
-    clean:append("rm", CLEAR_FILES)
+    clean:append("rm -rf", CLEAR_FILES)
 
     luabc.build()
 end
