@@ -1,7 +1,4 @@
 local build_file_template = [[
-local LUABC_DIR = os.getenv("HOME") .. "/fun/luabc/"
-package.path = package.path .. ";" .. LUABC_DIR .. "?.lua"
-
 local luabc = require("luabc")
 local cmd   = luabc.cmd
 local tool  = luabc.tool
@@ -11,8 +8,8 @@ local CC     = "gcc"
 local CFLAGS = { "-Wall", "-Wextra" }
 local CSTD   = "-std=c11"
 local TARGET = "main"
-local SRC    = tool.match_file_extension("c", "src")
-local OBJ    = tool.replace_files_extension(SRC, "o")
+local SRC    = tool.match_file_extension(".c", "src")
+local OBJ    = tool.replace_files_extension(SRC, ".o")
 local LD_LIB = ""
 local CLEAR  = { TARGET, table.unpack(OBJ) }
 
