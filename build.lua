@@ -10,7 +10,7 @@ local CC     = "gcc"
 local CFLAGS = { "-Wall", "-Wextra" }
 local CSTD   = "-std=c11"
 local TARGET = "zero"
-local SRC    = tool.match_file_extension("c")
+local SRC    = tool.match_file_extension(".c")
 local LD_LIB = "-llua5.4"
 
 local function build()

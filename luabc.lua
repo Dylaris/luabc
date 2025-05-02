@@ -56,7 +56,11 @@ end
 -- @note The command must be associated with only one label (default label: '__default')
 function luabc.cmd:new(label, order, code_first)
     label = label or "__default"
-    order = order or 1
+    if not luabc.bind[label] then
+        order = order or 1
+    else
+        order = order or (#luabc.bind[label] + 1)
+    end
     code_first = code_first or false
     local object = { 
         _args       = {},           -- contains the parameters for the command line
@@ -223,13 +227,13 @@ end
 --===================================================================================
 
 -- @brief Searches for files with the specified extension in the given directory
--- @param extension The file extension to match (e.g., 'txt', there has no dot here)
+-- @param extension The file extension to match (e.g., '.txt')
 -- @param dir The directory to search in
 -- @param recursive A boolean value indicating whether the search should be recursive
 -- @return A list of files that match the extension and the total number of matched files
 function luabc.tool.match_file_extension(extension, dir, recursive)
     dir = dir or "."
-    extension = extension and ("*." .. extension) or "*"
+    extension = extension and ("*" .. extension) or "*"
     recursive = recursive or false
     local res = {}
 
@@ -252,21 +256,24 @@ end
 
 -- @brief Replaces the file extension of the given filename with a new extension
 -- @param filename The original filename whose extension is to be replaced
--- @param new_extension The new extension to replace the old one (e.g., 'jpg', there has no dot here)
+-- @param new_extension The new extension to replace the old one (e.g., '.jpg')
 -- @return The filename with the new extension
 function luabc.tool.replace_file_extension(filename, new_extension)
     if not new_extension or not filename then
         luabc.debug.log.err("parameter <filename> and <new_extension> must be valid")
         return
     end
-    new_extension = "." .. new_extension
+    if new_extension ~= "" and string.sub(new_extension, 1, 1) ~= "." then
+        luabc.debug.log.err("you can't ignore dot")
+        return
+    end
     local new_filename, _ = string.gsub(filename, "%.[^%.]+$", new_extension)
     return new_filename
 end
 
 -- @brief Replaces the file extension of each file in the given list with a new extension
 -- @param files A list of filenames whose extensions are to be replaced
--- @param new_extension The new extension to replace the old ones (e.g., 'jpg', there has no dot here)
+-- @param new_extension The new extension to replace the old ones (e.g., '.jpg')
 -- @return A list of filenames with the new extension applied to each
 function luabc.tool.replace_files_extension(files, new_extension)
     if type(files) ~= "table" then
@@ -292,6 +299,74 @@ function luabc.tool.clean(file)
     else
         luabc.debug.log.err("run failed [ " .. cmd .. " ] : " .. msg)
     end
+end
+
+-- @brief Get the directory and filename from path
+-- @param path The original file path (string)
+-- @param new_filename The new filename to replace the old one (string)
+-- @param separator The path separator (optional, default is "/").
+-- @return The directory and filename
+function luabc.tool.get_dir_file(path, separator)
+    separator = separator or "/"
+
+    local dir, file = path:match("^(.-)" .. separator .. "([^" .. separator .. "]+)$")
+    if not dir then dir = "./" end
+    if string.sub(dir, -#separator) ~= separator then dir = dir .. separator end
+
+    return dir, file
+end
+
+-- @brief Replaces the filename in the path with the provided new filename
+-- @param path The original file path (string)
+-- @param new_filename The new filename to replace the old one (string)
+-- @param separator The path separator (optional, default is "/").
+-- @return The new path with the replaced filename (string)
+function luabc.tool.replace_path_filename(path, new_filename, separator)
+    if type(path) ~= "string" then
+        luabc.debug.log.err("path should be string type")
+        return
+    end
+    if not new_filename or type(new_filename) ~= "string" then
+        luabc.debug.log.err("parameter new_filename must be valid")
+        return
+    end
+    separator = separator or "/"
+    local old_dir, _ = luabc.tool.get_dir_file(path, separator)
+    return old_dir .. new_filename
+end
+
+-- @brief Replaces the directory in the path with the provided new directory
+-- @param path The original file path (string)
+-- @param new_dir The new directory to replace the old one (string)
+-- @param separator The path separator (optional, default is "/")
+-- @return The new path with the replaced directory (string)
+function luabc.tool.replace_path_directory(path, new_dir, separator)
+    if type(path) ~= "string" then
+        luabc.debug.log.err("path should be string type")
+        return
+    end
+    separator = separator or "/"
+    local _, old_file = luabc.tool.get_dir_file(path, separator)
+    if string.sub(new_dir, -#separator) ~= separator then new_dir = new_dir .. separator end
+    return new_dir .. old_file
+end
+
+-- @brief Replaces the directory in each path in the given list of paths with the provided new directory
+-- @param paths A table containing paths (table)
+-- @param new_dir The new directory to replace the old one (string)
+-- @param separator The path separator (optional, default is "/")
+-- @return A table containing the new paths with the replaced directories (table)
+function luabc.tool.replace_paths_directory(paths, new_dir, separator)
+    local res = {}
+    if type(paths) == "table" then
+        for _, path in ipairs(paths) do
+            table.insert(res, luabc.tool.replace_path_directory(path, new_dir, separator))
+        end
+    else
+        luabc.debug.log.err("paths should be a table")
+        return
+    end
+    return res
 end
 
 --===================================================================================

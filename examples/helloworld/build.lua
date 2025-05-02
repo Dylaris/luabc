@@ -10,8 +10,8 @@ local CC     = "gcc"
 local CFLAGS = { "-Wall", "-Wextra" }
 local CSTD   = "-std=c11"
 local TARGET = "helloworld"
-local SRC    = tool.match_file_extension("c")
-local OBJ    = tool.replace_files_extension(SRC, "o")
+local SRC    = tool.match_file_extension(".c")
+local OBJ    = tool.replace_files_extension(SRC, ".o")
 local CLEAR_FILES = { TARGET, table.unpack(OBJ) }
 
 -- directly run the command
