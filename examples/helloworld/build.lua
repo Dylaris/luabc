@@ -14,36 +14,11 @@ local SRC    = tool.match_file_extension(".c")
 local OBJ    = tool.replace_files_extension(SRC, ".o")
 local CLEAR_FILES = { TARGET, table.unpack(OBJ) }
 
--- directly run the command
 -- usage: lua build.lua
----[[ 
+
 local function build()
     local all = cmd:new()
     all:append(CC, CFLAGS, CSTD, "-o", TARGET, SRC)
-    all:run(false)
+    all:run()
 end
 build()
---]]
-
--- use label and bind
--- usage: lua build.lua [-clean][-all]
---[[ 
-local function build()
-    -- execute the commands in ascending order
-    -- cmd:new(label, order)
-    for i = 1, #SRC do
-        local compile = cmd:new("all", i)
-        compile:append(CC, CFLAGS, CSTD, "-c", "-o", OBJ[i], SRC[i])
-    end
-
-    local link = cmd:new("all", #SRC+1)
-    link:append(CC, CFLAGS, CSTD, "-o", TARGET, OBJ)
-
-    local clean = cmd:new("clean")
-    -- clean:append("rm -rf", CLEAR_FILES)  -- run the command
-    clean:call(tool.clean, CLEAR_FILES)     -- run the function
-
-    luabc.build()
-end
-build()
---]]
