@@ -14,11 +14,14 @@ local color = {
 }
 
 local luabc = { 
+    os    = "UNIX",                     -- platform
     bind  = { ["__default"] = {} },     -- stores labels and their associated commands
     tool  = {},                         -- contains useful utility functions
     cmd   = {},                         -- defines functions related to command operations
-    debug = { log = {} }                -- contains functions and lgos for debugging
+    debug = { log = {} },               -- contains functions and lgos for debugging
+    shell = {}                          -- contains the shell api for luabc.tool (for cross platform) 
 }
+luabc.os = (package.config:sub(1, 1) == "\\") and "WIN" or "UNIX"
 
 -- @brief Build the entire project according the label (based on the cmd line input
 -- and recoreds in 'luabc.bind')
@@ -137,7 +140,7 @@ local function exec_cmd(args)
     -- replace the variable to real value
     local real_args = {}
     for idx, arg in ipairs(args) do
-        arg = (type(arg) == "table") and table.concat(arg, " ") or arg
+        arg = (type(arg) == "table") and luabc.tool.recursive_concat(arg) or arg
         table.insert(real_args, arg)
     end
     local cmd = table.concat(real_args, " ")
@@ -237,10 +240,7 @@ function luabc.tool.match_file_extension(extension, dir, recursive)
     recursive = recursive or false
     local res = {}
 
-    local cmd = "find " .. dir .. " " ..
-                (recursive and "" or "-maxdepth 1 ") ..
-                "-type f " ..
-                "-name " .. "'" .. extension .. "'"
+    local cmd = luabc.shell.find(dir, "f", recursive, extension)
     local handle = io.popen(cmd)
     for file in handle:lines() do
         table.insert(res, file)
@@ -289,10 +289,7 @@ end
 -- @brief Deletes the specified file or files
 -- @param file A single filename or a list of filenames to be deleted
 function luabc.tool.clean(file)
-    if type(file) == "table" then
-        file = table.concat(file, " ")
-    end
-    local cmd = "rm -rf " .. file
+    local cmd = luabc.shell.remove(file)
     local status, msg = os.execute(cmd)
     if status then
         luabc.debug.log.ok("run successfully [ " .. cmd .. " ]")
@@ -307,10 +304,10 @@ end
 -- @param separator The path separator (optional, default is "/").
 -- @return The directory and filename
 function luabc.tool.get_dir_file(path, separator)
-    separator = separator or "/"
+    separator = separator or ((luabc.os == "WIN") and "\\" or "/")
 
     local dir, file = path:match("^(.-)" .. separator .. "([^" .. separator .. "]+)$")
-    if not dir then dir = "./" end
+    if not dir then dir = "." .. separator end
     if string.sub(dir, -#separator) ~= separator then dir = dir .. separator end
 
     return dir, file
@@ -330,7 +327,7 @@ function luabc.tool.replace_path_filename(path, new_filename, separator)
         luabc.debug.log.err("parameter new_filename must be valid")
         return
     end
-    separator = separator or "/"
+    separator = separator or ((luabc.os == "WIN") and "\\" or "/")
     local old_dir, _ = luabc.tool.get_dir_file(path, separator)
     return old_dir .. new_filename
 end
@@ -345,7 +342,7 @@ function luabc.tool.replace_path_directory(path, new_dir, separator)
         luabc.debug.log.err("path should be string type")
         return
     end
-    separator = separator or "/"
+    separator = separator or ((luabc.os == "WIN") and "\\" or "/")
     local _, old_file = luabc.tool.get_dir_file(path, separator)
     if string.sub(new_dir, -#separator) ~= separator then new_dir = new_dir .. separator end
     return new_dir .. old_file
@@ -367,6 +364,31 @@ function luabc.tool.replace_paths_directory(paths, new_dir, separator)
         return
     end
     return res
+end
+
+-- @brief Recursively concatenates the elements of a table
+-- @param obj The input object (can be a string, table, or other types)
+-- @return A concatenated string
+function luabc.tool.recursive_concat(obj)
+    if type(obj) == "string" then
+        return obj
+    elseif type(obj) == "table" then
+        local result = ""
+        for _, val in ipairs(obj) do
+            -- some steps just for removing the redundant spaces
+            local concat_val = luabc.tool.recursive_concat(val)
+            if concat_val ~= "" then
+                if result ~= "" then
+                    result = result .. " " .. concat_val
+                else
+                    result = concat_val
+                end
+            end
+        end
+        return result
+    else
+        return ""
+    end
 end
 
 --===================================================================================
@@ -446,4 +468,98 @@ function luabc.debug.print(obj, is_concat)
     end
 end
 
+--===================================================================================
+--================================================================= luabc.shell
+--===================================================================================
+
+-- *** NOTE ***
+-- This module is crucial for cross-platform compatibility. Other modules will 
+-- call the methods here to generate execution commands, which are essentially 
+-- shell commands. If you want to use 'luabc' on a specific platform, you will 
+-- need to modify this module to ensure that 'luabc' adjusts properly to that platform
+
+local shell = {}
+
+function shell.unix_find(dir, file_type, recursive, pattern)
+    if file_type ~= "f" and file_type ~= "d" then
+        luabc.debug.log.err("invalid file type")
+        return
+    end
+    dir = dir or "."
+    pattern = pattern or "*"
+    recursive = recursive or false
+
+    local cmd = "find " .. dir .. " " ..
+                (recursive and "" or "-maxdepth 1 ") ..
+                "-type " .. file_type .. " " ..
+                "-name " .. "'" .. pattern .. "'"
+    return cmd
+end
+
+function shell.unix_remove(obj)
+    local cmd = "rm -rf "
+    if type(obj) == "table" then
+        obj = luabc.tool.recursive_concat(obj)
+    end
+
+    if obj and obj ~= "" then
+        return cmd .. obj
+    else
+        return ""
+    end
+end
+
+function shell.win_find(dir, file_type, recursive, pattern)
+    if file_type ~= "f" and file_type ~= "d" then
+        luabc.debug.log.err("invalid file type")
+        return
+    end
+    dir = dir or "."
+    pattern = pattern or "*"
+    recursive = recursive or false
+
+    local cmd = "powershell -Command \"Get-ChildItem '" .. dir .. "' " ..
+                (recursive and "-Recurse " or "") ..
+                (file_type == "f" and "-File " or "-Directory ") ..
+                "-Filter '" .. pattern .. "' | Select-Object -ExpandProperty Name\""
+    return cmd
+end
+
+function shell.win_remove(obj)
+    local cmd = "powershell -Command \""
+    
+    if type(obj) == "table" then
+        obj = luabc.tool.recursive_concat(obj)
+    end
+    
+    if obj and obj ~= "" then
+        -- ensure the paths are wrapped in quotes for safe processing
+        local paths = {}
+        for path in string.gmatch(obj, "%S+") do
+            table.insert(paths, "'" .. path .. "'")
+        end
+
+        -- for each path, check if it exists and then delete it (file or folder)
+        local check_and_remove = {}
+        for _, path in ipairs(paths) do
+            table.insert(check_and_remove, "if (Test-Path " .. path .. ") { Remove-Item " .. path .. " -Recurse -Force -ErrorAction SilentlyContinue }")
+        end
+        
+        -- join all the check-remove commands
+        local check_and_remove_str = table.concat(check_and_remove, "; ")
+        
+        -- final command with all checks and removal
+        cmd = cmd .. check_and_remove_str
+        
+        return cmd .. "\""
+    else
+        return ""
+    end
+end
+
+luabc.shell         = luabc.shell or {}
+luabc.shell.find    = (luabc.os == "WIN") and shell.win_find   or shell.unix_find
+luabc.shell.remove  = (luabc.os == "WIN") and shell.win_remove or shell.unix_remove
+
 return luabc
+
