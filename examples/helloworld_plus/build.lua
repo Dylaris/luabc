@@ -1,4 +1,4 @@
-local LUABC_DIR = os.getenv("HOME") .. "/fun/luabc/"
+local LUABC_DIR = "../../"
 package.path = package.path .. ";" .. LUABC_DIR .. "?.lua"
 
 local luabc = require("luabc")
@@ -9,9 +9,9 @@ local debug = luabc.debug
 local CC     = "gcc"
 local CFLAGS = { "-Wall", "-Wextra" }
 local CSTD   = "-std=c11"
-local TARGET = "helloworld"
+local TARGET = (luabc.os == "UNIX") and "helloworld" or "helloworld.exe"
 local SRC    = tool.match_file_extension(".c")
-local OBJ    = tool.replace_files_extension(SRC, ".o")
+local OBJ    = (luabc.os == "UNIX") and tool.replace_files_extension(SRC, ".o") or tool.replace_files_extension(SRC, ".obj")
 local CLEAR_FILES = { TARGET, table.unpack(OBJ) }
 
 -- usage: lua build.lua [-clean][-all]
